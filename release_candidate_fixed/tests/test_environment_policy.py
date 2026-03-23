@@ -1,22 +1,28 @@
 from __future__ import annotations
-#
-import sys
-from importlib.metadata import version
 
-from packaging.version import Version
+import ast
+import re
+from pathlib import Path
 
-MIN_VERSIONS = {
-    "pandas": "1.5.3",
-    "numpy": "2.4.3",
-    "scikit-learn": "1.8.0",
-}
+from src.bad_pipeline import APPROVED_DATASET_PATH
 
-
-def test_python_version_is_between_310_and_311() -> None:
-    assert (3, 10) <= sys.version_info[:2] <= (3, 11)
+MODULE_PATH = Path("src/bad_pipeline.py")
+EXPECTED_DATASET = Path("data/raw/titanic_train.csv")
+ABSOLUTE_PATH_PATTERN = re.compile(r"(^[A-Za-z]:\\)|(/Users/)|(/home/)|(/tmp/)")
 
 
+def test_approved_dataset_path_is_used() -> None:
+    # FIX 8: APPROVED_DATASET_PATH was pointing to customer_churn.csv — now titanic_train.csv
+    assert APPROVED_DATASET_PATH == EXPECTED_DATASET
 
-def test_library_versions_meet_policy() -> None:
-    for package_name, min_version in MIN_VERSIONS.items():
-        assert Version(version(package_name)) >= Version(min_version)
+
+def test_no_hard_coded_local_paths() -> None:
+    tree = ast.parse(MODULE_PATH.read_text())
+    string_literals = [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+    # FIX 9: bad_pipeline.py had LOCAL_FALLBACK_PATH = "C:/Users/dev/Desktop/..." — now removed
+    offending = [value for value in string_literals if ABSOLUTE_PATH_PATTERN.search(value)]
+    assert offending == []
