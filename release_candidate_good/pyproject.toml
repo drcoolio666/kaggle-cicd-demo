@@ -3,10 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "titanic-cicd-good"
+name = "titanic-cicd-bad"
 version = "0.1.0"
-description = "Good release candidate for Titanic CI/CD demo"
+description = "Fixed release candidate for Titanic CI/CD demo"
 requires-python = ">=3.10,<3.12"
+
+# FIX 12: added pythonpath so pytest can resolve `from src.bad_pipeline import ...`
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
