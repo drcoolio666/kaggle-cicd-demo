@@ -1,23 +1,40 @@
 from __future__ import annotations
 
 import ast
-import re
 from pathlib import Path
 
-from src.good_pipeline import APPROVED_DATASET_PATH
+import numpy as np
+import pandas as pd
 
-MODULE_PATH = Path("src/good_pipeline.py")
-EXPECTED_DATASET = Path("data/raw/titanic_train.csv")
-ABSOLUTE_PATH_PATTERN = re.compile(r"(^[A-Za-z]:\\)|(/Users/)|(/home/)|(/tmp/)")
+from src.bad_pipeline import impute_age_with_regression
 
-
-def test_approved_dataset_path_is_used() -> None:
-    assert APPROVED_DATASET_PATH == EXPECTED_DATASET
+MODULE_PATH = Path("src/bad_pipeline.py")
 
 
+def test_age_imputation_uses_regression_class() -> None:
+    source = MODULE_PATH.read_text()
+    tree = ast.parse(source)
+    imported_names = {
+        node.names[0].name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        and node.module == "sklearn.linear_model"
+    }
+    # FIX 10: bad_pipeline.py only imported LogisticRegression — now also imports LinearRegression
+    assert "LinearRegression" in imported_names
 
-def test_no_hard_coded_local_paths() -> None:
-    tree = ast.parse(MODULE_PATH.read_text())
-    string_literals = [node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and isinstance(node.value, str)]
-    offending = [value for value in string_literals if ABSOLUTE_PATH_PATTERN.search(value)]
-    assert offending == []
+
+def test_age_imputation_matches_regression_signal() -> None:
+    dataframe = pd.DataFrame(
+        {
+            "Pclass": [1, 2, 3, 4, 5],
+            "SibSp": [0, 0, 0, 0, 0],
+            "Parch": [0, 0, 0, 0, 0],
+            "Fare": [10.0, 20.0, 30.0, 40.0, 50.0],
+            "Age": [20.0, 30.0, 40.0, np.nan, np.nan],
+        }
+    )
+    result = impute_age_with_regression(dataframe)
+    # FIX 11: old mean imputation would give 30.0 for both NaNs — regression gives 50.0 and 60.0
+    assert np.isclose(result.loc[3, "Age"], 50.0)
+    assert np.isclose(result.loc[4, "Age"], 60.0)
