@@ -39,3 +39,5 @@ jobs:
           cd release_candidate_fixed
           PYTHONPATH=. pytest
           pytest
+
+# test
